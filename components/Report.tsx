@@ -184,7 +184,7 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
           <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl mb-4">
             <p className="text-xs text-amber-800 font-medium">
               <i className="fa-solid fa-circle-info mr-1"></i>
-              你的学习优势集中在「{learningTop[0]} + {learningTop[1]}」的组合，而不是单一类型。换对方式 > 更努力。
+              你的学习优势集中在「{learningTop[0]} + {learningTop[1]}」的组合，而不是单一类型。换对象 &gt; 更努力。
             </p>
           </div>
           <div className="space-y-3">
