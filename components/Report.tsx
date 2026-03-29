@@ -94,92 +94,104 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
     );
   };
 
-  // 获取排序后的工作结构
-  const getRankedStructures = () => {
+  // 获取最适合的工作结构
+  const getMostSuitableStructure = () => {
     const isInternal = (scores['内在激励'] || 0) > (scores['外在激励'] || 0);
     const isSystematic = (scores['系统性认知'] || 0) > (scores['直觉型认知'] || 0);
     const topLearning = learningTop[0];
     const topCulture = cultureTop[0];
     const topSelf = selfTop[0];
 
-    const ranked = workTypes.map(type => {
-      let score = 0;
-      // 基础匹配逻辑
-      if (type.name === "核心功能型工作") {
-        if (isInternal) score += 2;
-        if (isSystematic) score += 2;
-        if (topCulture === '能力与成长') score += 3;
-        if (topLearning === '抽象概念化') score += 1;
-      } else if (type.name === "购买决策型工作") {
-        if (isSystematic) score += 3;
-        if (topLearning === '抽象概念化') score += 3;
-        if (topCulture === '地位与独立性') score += 2;
-      } else if (type.name === "关联扩展型工作") {
-        if (!isSystematic) score += 3;
-        if (topLearning === '主动尝试') score += 3;
-        if (topSelf === '创新导向') score += 2;
-      } else if (type.name === "情感与社会型工作") {
-        if (topSelf === '人际和谐') score += 3;
-        if (topCulture === '地位与独立性') score += 3;
-        if (!isInternal) score += 1;
-      } else if (type.name === "消费支持型工作") {
-        if (topCulture === '舒适度安全性') score += 3;
-        if (topSelf === '长期发展') score += 3;
-        if (isSystematic) score += 1;
-      }
-      
-      // 行为化描述生成
-      const situations = [
-        isInternal 
-          ? "在复杂任务中，你更倾向于挖掘其背后的深层意义，而非仅仅追求表面的KPI达成，这种自驱力让你在无人监督时也能保持高产出。"
-          : "你对外部反馈和阶段性成果非常敏感，擅长在明确的激励机制下快速推进工作，这种结果导向让你在竞争环境中极具爆发力。",
-        isSystematic
-          ? "面对不确定性，你习惯于先建立逻辑模型或详细计划，通过拆解风险来获得掌控感，这种严谨性确保了交付物的高质量。"
-          : "你具备极强的直觉捕捉能力，擅长在动态变化中寻找机会，不拘泥于既定流程，这种灵活性让你在初创或高频变动的环境中如鱼得水。",
-        topCulture === '能力与成长'
-          ? "你将工作视为自我进化的阶梯，极度渴望智力挑战和专业深耕，平庸且重复的任务会让你迅速产生职业倦怠。"
-          : topCulture === '舒适度安全性'
-          ? "你追求职场的确定性与安全感，在规则明确、环境稳定的组织中，你能发挥出最持久的专业效能。"
-          : "你具备强烈的独立意识和影响力诉求，渴望在组织中拥有决策权或管理空间，这种领航特质驱动你不断向上突破。"
-      ];
+    // 描述三个最相关的维度情况 (行为化描述)
+    const situations = [
+      isInternal 
+        ? "在复杂任务中，你更倾向于挖掘其背后的深层意义，而非仅仅追求表面的KPI达成，这种自驱力让你在无人监督时也能保持高产出。"
+        : "你对外部反馈和阶段性成果非常敏感，擅长在明确的激励机制下快速推进工作，这种结果导向让你在竞争环境中极具爆发力。",
+      isSystematic
+        ? "面对不确定性，你习惯于先建立逻辑模型或详细计划，通过拆解风险来获得掌控感，这种严谨性确保了交付物的高质量。"
+        : "你具备极强的直觉捕捉能力，擅长在动态变化中寻找机会，不拘泥于既定流程，这种灵活性让你在初创或高频变动的环境中如鱼得水。",
+      topCulture === '能力与成长'
+        ? "你将工作视为自我进化的阶梯，极度渴望智力挑战和专业深耕，平庸且重复的任务会让你迅速产生职业倦怠。"
+        : topCulture === '舒适度安全性'
+        ? "你追求职场的确定性与安全感，在规则明确、环境稳定的组织中，你能发挥出最持久的专业效能。"
+        : "你具备强烈的独立意识和影响力诉求，渴望在组织中拥有决策权或管理空间，这种领航特质驱动你不断向上突破。"
+    ];
 
-      let explanation = "";
-      let reason = "";
-      if (type.name === "核心功能型工作") {
-        explanation = "你的专业深耕能力与自驱特质高度契合此类结构。你能在明确的目标下，通过持续的智力投入建立起难以被替代的专业壁垒。";
-        reason = "这类工作对专业深度和长期专注有极高要求，若你倾向于快速变动或广泛协作，可能会感到枯燥或受限。";
-      } else if (type.name === "购买决策型工作") {
-        explanation = "在资源配置与风险博弈中，你的理性分析与系统思维能确保决策的质量。你擅长在复杂数据中寻找逻辑支撑，从而在关键时刻做出最具确定性的判断。";
-        reason = "高风险、高逻辑要求的决策环境需要极强的心理承受力，若你更看重情感连接或直觉感悟，可能会面临巨大压力。";
-      } else if (type.name === "关联扩展型工作") {
-        explanation = "在多变的项目环境与复杂的系统整合中，你的灵活性与试错精神能有效驱动创新。你擅长在模糊的边界中寻找连接点，通过快速迭代解决非标准化问题。";
-        reason = "这类工作需要极高的灵活性与对模糊性的容忍度，若你追求绝对秩序或明确回报，在缺乏标准流程的环境中会感到无所适从。";
-      } else if (type.name === "情感与社会型工作") {
-        explanation = "在团队领导或对外沟通中，你的社会感知力与影响力能有效凝聚资源。你擅长通过情感共鸣或愿景驱动他人，是组织中不可或缺的粘合剂或领航者。";
-        reason = "这类工作涉及大量的人际博弈与情感劳动，若你更倾向于独立工作或纯技术钻研，频繁的社交互动会让你感到精疲力竭。";
-      } else if (type.name === "消费支持型工作") {
-        explanation = "在体系维护与长期服务中，你的稳健与耐心能确保系统的持续优化。你擅长在日常的琐碎中发现改进空间，通过长期主义的坚持创造持久价值。";
-        reason = "这类工作需要长期的耐心与对规则的严守，若你追求直觉反应与内在兴趣的快速变现，枯燥的重复性劳动会迅速消耗你的创造力。";
-      }
+    let typeName = "核心功能型工作";
+    let explanation = "你的专业深耕能力与自驱特质高度契合此类结构。你能在明确的目标下，通过持续的智力投入建立起难以被替代的专业壁垒。";
 
-      return { 
-        ...type, 
-        score, 
-        situations, 
-        explanation, 
-        reason,
-        relevantDims: (type.name === "核心功能型工作" || type.name === "购买决策型工作") ? ['career', 'bias', 'culture'] as const : ['bias', 'learning', 'self'] as const
-      };
-    }).sort((a, b) => b.score - a.score);
+    if (isSystematic && topLearning === '抽象概念化') {
+      typeName = "购买决策型工作";
+      explanation = "在资源配置与风险博弈中，你的理性分析与系统思维能确保决策的质量。你擅长在复杂数据中寻找逻辑支撑，从而在关键时刻做出最具确定性的判断。";
+    } else if (!isSystematic && topLearning === '主动尝试') {
+      typeName = "关联扩展型工作";
+      explanation = "在多变的项目环境与复杂的系统整合中，你的灵活性与试错精神能有效驱动创新。你擅长在模糊的边界中寻找连接点，通过快速迭代解决非标准化问题。";
+    } else if (topSelf === '人际和谐' || topCulture === '地位与独立性') {
+      typeName = "情感与社会型工作";
+      explanation = "在团队领导或对外沟通中，你的社会感知力与影响力能有效凝聚资源。你擅长通过情感共鸣或愿景驱动他人，是组织中不可或缺的粘合剂或领航者。";
+    } else if (topCulture === '舒适度安全性' || topSelf === '长期发展') {
+      typeName = "消费支持型工作";
+      explanation = "在体系维护与长期服务中，你的稳健与耐心能确保系统的持续优化。你擅长在日常的琐碎中发现改进空间，通过长期主义的坚持创造持久价值。";
+    }
 
-    return {
-      first: ranked[0],
-      second: ranked[1],
-      least: ranked[4]
+    const typeInfo = workTypes.find(t => t.name === typeName)!;
+
+    return { 
+      type: typeName, 
+      situations, 
+      explanation,
+      desc: typeInfo.desc,
+      path: typeInfo.path,
+      relevantDims: ['career', 'bias', 'culture'] as const
     };
   };
 
-  const { first, second, least } = getRankedStructures();
+  // 获取最不适合的工作结构
+  const getLeastSuitableStructure = () => {
+    const isIntuitive = (scores['直觉型认知'] || 0) > (scores['系统性认知'] || 0);
+    const isExternal = (scores['外在激励'] || 0) > (scores['内在激励'] || 0);
+    const bottomLearning = learningTop[learningTop.length - 1];
+    const bottomCulture = cultureTop[cultureTop.length - 1];
+
+    const situations = [
+      bottomLearning === '反思性观察'
+        ? "你可能不太习惯于长时间的静默观察与深度复盘，更倾向于直接行动，这在需要极度细致审计或长期观察的岗位上可能存在盲点。"
+        : bottomLearning === '抽象概念化'
+        ? "你可能对纯理论推演或复杂的逻辑建模缺乏耐心，更看重实际的体悟与操作，这在高度学术化或战略规划的结构中会感到吃力。"
+        : "你在特定学习维度上的低倾向，反映了你对某些工作模式的天然排斥，强行适配会带来巨大的心理内耗。",
+      bottomCulture === '地位与独立性'
+        ? "你对权力和地位的追求相对淡泊，更看重人际和谐或任务本身，这让你在权力斗争激烈或需要强势博弈的环境中处于劣势。"
+        : "你对特定环境诉求的缺失，意味着你在某些高压或高竞争的结构中，难以找到持续支撑你的价值支点，容易产生疏离感。",
+      isIntuitive
+        ? "你的直觉导向虽然敏捷，但在需要绝对客观、数据驱动的严密决策链条中，可能会被视为缺乏依据，导致决策难以获得组织共识。"
+        : "你的系统导向虽然稳健，但在需要瞬间反应、抓住转瞬即逝机会的博弈中，可能会因过度分析而错失良机，在动态竞争中显得迟缓。"
+    ];
+
+    let typeName = "购买决策型工作";
+    let reason = "由于决策风格或动力来源的错配，你在高风险、高逻辑要求的决策环境中可能面临较大压力。这种结构对理性的极致要求可能会抑制你的天赋发挥。";
+
+    if (!isIntuitive && isExternal) {
+      typeName = "关联扩展型工作";
+      reason = "这类工作需要极高的灵活性与对模糊性的容忍度，与你追求秩序、关注明确回报的特质存在冲突。在缺乏标准流程的环境中，你会感到无所适从。";
+    } else if (isIntuitive && !isExternal) {
+      typeName = "消费支持型工作";
+      reason = "这类工作需要长期的耐心与对规则的严守，与你追求直觉反应与内在兴趣的特质不够适配。枯燥的重复性劳动会迅速消耗你的创造力。";
+    }
+
+    const typeInfo = workTypes.find(t => t.name === typeName)!;
+
+    return { 
+      type: typeName, 
+      situations, 
+      reason,
+      desc: typeInfo.desc,
+      path: typeInfo.path,
+      relevantDims: ['bias', 'learning', 'self'] as const
+    };
+  };
+
+  const mostSuitable = getMostSuitableStructure();
+  const leastSuitable = getLeastSuitableStructure();
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-6 bg-slate-50 min-h-screen">
@@ -252,60 +264,38 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
         </div>
       </section>
 
-      {/* 适合及不适合你的工作结构 */}
+      {/* 最适合及最不适合你工作结构 */}
       <section className="space-y-8 mb-16">
-        <h2 className="text-2xl font-black text-slate-900 mb-8 px-2">最适合及最不适合你的工作结构</h2>
+        <h2 className="text-2xl font-black text-slate-900 mb-8 px-2">最适合及最不适合你工作结构</h2>
         
-        {/* 适合的工作结构 (第一 & 第二) */}
+        {/* 最适合 */}
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-6 bg-brand-primary rounded-full"></div>
-              <h3 className="text-lg font-bold text-slate-900">最适合的工作结构分析</h3>
+              <h3 className="text-lg font-bold text-slate-900">最适合的工作结构：{mostSuitable.type}</h3>
             </div>
             <span className="px-3 py-1 bg-brand-primary text-white text-[10px] font-black rounded-full uppercase tracking-widest">高度匹配</span>
           </div>
 
-          <div className="space-y-10">
-            {/* 第一适合 (70%) */}
-            <div className="relative pl-6 border-l-2 border-brand-primary/20">
-              <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-brand-primary border-4 border-white shadow-sm"></div>
-              <div className="mb-4">
-                <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest block mb-1">第一匹配结构 (核心推荐)</span>
-                <h4 className="text-xl font-black text-slate-900">{first.name}</h4>
-              </div>
-              <div className="p-6 bg-brand-primary/5 rounded-2xl border border-brand-primary/10 mb-6">
-                <p className="text-sm text-slate-600 mb-4 leading-relaxed font-medium">{first.desc}</p>
-                <p className="text-sm text-slate-700 leading-relaxed mb-4 italic">“{first.explanation}”</p>
-                <div className="text-xs text-slate-700 bg-white/50 p-3 rounded-xl">
-                  <span className="font-bold text-brand-primary">路径建议：</span>{first.path}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">核心维度表现：</div>
-                  {first.relevantDims.map(d => <MiniChart key={d} dimKey={d} />)}
-                </div>
-                <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-100">
-                  <span className="font-bold text-brand-primary block mb-4 text-xs uppercase tracking-widest">深度行为分析：</span>
-                  <ul className="list-disc list-inside space-y-3 text-slate-600 text-sm leading-relaxed">
-                    {first.situations.map((s, i) => <li key={i}>{s}</li>)}
-                  </ul>
-                </div>
-              </div>
+          <div className="p-6 bg-brand-primary/5 rounded-2xl border border-brand-primary/10 mb-6">
+            <p className="text-sm text-slate-600 mb-3 leading-relaxed">{mostSuitable.desc}</p>
+            <div className="text-xs text-slate-700">
+              <span className="font-bold text-brand-primary">路径建议：</span>{mostSuitable.path}
             </div>
+          </div>
 
-            {/* 第二适合 (30%) */}
-            <div className="relative pl-6 border-l-2 border-slate-200 opacity-80">
-              <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-300 border-4 border-white shadow-sm"></div>
-              <div className="mb-4">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">第二匹配结构 (关联扩展)</span>
-                <h4 className="text-lg font-bold text-slate-700">{second.name}</h4>
-              </div>
-              <div className="text-sm text-slate-600 leading-relaxed">
-                <p className="mb-2">{second.desc}</p>
-                <p className="text-xs text-slate-500 italic">匹配逻辑：{second.explanation.split('。')[0]}。</p>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div className="text-xs font-bold text-brand-primary mb-2">核心维度表现图表：</div>
+              {mostSuitable.relevantDims.map(d => <MiniChart key={d} dimKey={d} />)}
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+              <span className="font-bold text-brand-primary block mb-4 text-sm">深度分析：</span>
+              <ul className="list-disc list-inside space-y-3 text-slate-700 text-sm leading-relaxed">
+                {mostSuitable.situations.map((s, i) => <li key={i}>{s}</li>)}
+                <li className="font-bold mt-2 text-brand-primary">结论：{mostSuitable.explanation}</li>
+              </ul>
             </div>
           </div>
         </div>
@@ -315,27 +305,28 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-1.5 h-6 bg-brand-accent rounded-full"></div>
-              <h3 className="text-lg font-bold text-slate-900">最不适合的工作结构：{least.name}</h3>
+              <h3 className="text-lg font-bold text-slate-900">最不适合的工作结构：{leastSuitable.type}</h3>
             </div>
             <span className="px-3 py-1 bg-brand-accent text-white text-[10px] font-black rounded-full uppercase tracking-widest">风险预警</span>
           </div>
 
           <div className="p-6 bg-brand-accent/5 rounded-2xl border border-brand-accent/10 mb-6">
-            <p className="text-sm text-slate-600 mb-3 leading-relaxed">{least.desc}</p>
+            <p className="text-sm text-slate-600 mb-3 leading-relaxed">{leastSuitable.desc}</p>
             <div className="text-xs text-slate-700">
-              <span className="font-bold text-brand-accent">错配影响：</span>{least.reason}
+              <span className="font-bold text-brand-accent">错配影响：</span>{leastSuitable.path}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <div className="text-xs font-bold text-brand-accent mb-2">关键风险维度图表：</div>
-              {least.relevantDims.map(d => <MiniChart key={d} dimKey={d} />)}
+              {leastSuitable.relevantDims.map(d => <MiniChart key={d} dimKey={d} />)}
             </div>
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
               <span className="font-bold text-brand-accent block mb-4 text-sm">潜在冲突点：</span>
               <ul className="list-disc list-inside space-y-3 text-slate-700 text-sm leading-relaxed">
-                {least.situations.map((s, i) => <li key={i}>{s}</li>)}
+                {leastSuitable.situations.map((s, i) => <li key={i}>{s}</li>)}
+                <li className="font-bold mt-2 text-brand-accent">风险预警：{leastSuitable.reason}</li>
               </ul>
             </div>
           </div>
@@ -357,7 +348,7 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
                   <div className="w-8 h-8 rounded-lg bg-brand-primary/10 flex items-center justify-center text-brand-primary font-bold shrink-0">1</div>
                   <p className="text-sm text-slate-700 leading-relaxed font-medium">
                     <span className="block text-brand-primary font-bold mb-1">环境对齐</span>
-                    评估当前工作是否属于「{first.name}」，若不是，尝试在现有岗位中争取更多相关任务。
+                    评估当前工作是否属于「{mostSuitable.type}」，若不是，尝试在现有岗位中争取更多相关任务。
                   </p>
                 </div>
                 <div className="flex gap-4">
@@ -387,7 +378,7 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
                  <div className="w-8 h-8 rounded-lg bg-brand-accent/10 flex items-center justify-center text-brand-accent font-bold shrink-0">1</div>
                  <p className="text-sm text-slate-700 leading-relaxed">
                    <span className="block text-brand-accent font-bold mb-1">错配损耗</span>
-                   警惕在「{least.name}」这种结构中长期停留，这会极大消耗你的心理能量，导致专业产出下降。
+                   警惕在「{leastSuitable.type}」这种结构中长期停留，这会极大消耗你的心理能量，导致专业产出下降。
                  </p>
                </li>
                <li className="flex gap-4">
