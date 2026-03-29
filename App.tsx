@@ -1,70 +1,42 @@
 
-import React, { useState, useMemo, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useMemo, useEffect, ReactNode } from 'react';
 import { QUESTIONS } from './constants/questions';
-import { calculateScores, getDetailedPortrait } from './utils/analysis';
+import { calculateScores } from './utils/analysis';
 import { STATIC_CODES, isValidPattern } from './constants/codes';
 import Report from './components/Report';
-import { auth, db, googleProvider, signInWithPopup, onAuthStateChanged, collection, doc, setDoc, serverTimestamp, FirebaseUser, handleFirestoreError, OperationType } from './src/firebase';
-import AdminDashboard from './src/components/AdminDashboard';
+import { auth, googleProvider, signInWithPopup, onAuthStateChanged, db, User } from './firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ErrorBoundary } from 'react-error-boundary';
 
-// Error Boundary Component
-interface Props {
-  children: ReactNode;
-}
+// Error Fallback Component
+const ErrorFallback = ({ error }: { error: Error }) => {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-rose-50 text-center">
+      <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center text-rose-500 mb-6">
+        <i className="fa-solid fa-triangle-exclamation text-4xl"></i>
+      </div>
+      <h1 className="text-2xl font-black text-slate-900 mb-4">抱歉，程序出现了错误</h1>
+      <p className="text-slate-600 mb-8 max-w-md">
+        {error?.message.includes('{') 
+          ? "数据库连接或权限验证失败，请刷新页面重试。" 
+          : "我们遇到了一些技术问题，请稍后再试。"}
+      </p>
+      <button 
+        onClick={() => window.location.reload()}
+        className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all"
+      >
+        刷新页面
+      </button>
+    </div>
+  );
+};
 
-interface State {
-  hasError: boolean;
-  errorInfo: string;
-}
-
-class ErrorBoundary extends React.Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    errorInfo: ''
-  };
-
-  public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, errorInfo: error.message };
-  }
-
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
-  }
-
-  public render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center p-6 bg-rose-50">
-          <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-rose-100 text-center">
-            <i className="fa-solid fa-circle-exclamation text-5xl text-rose-500 mb-6"></i>
-            <h2 className="text-2xl font-black text-slate-900 mb-4">抱歉，出错了</h2>
-            <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-              应用程序遇到了一个意外错误。请尝试刷新页面或联系管理员。
-            </p>
-            <div className="bg-slate-50 p-4 rounded-xl text-left mb-6 overflow-auto max-h-40">
-              <code className="text-[10px] text-rose-600 break-all">{this.state.errorInfo}</code>
-            </div>
-            <button 
-              onClick={() => window.location.reload()}
-              className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-brand-primary transition-all"
-            >
-              刷新页面
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (this as any).props.children;
-  }
-}
-
-const App: React.FC = () => {
-  const [step, setStep] = useState<'home' | 'quiz' | 'report' | 'admin'>('home');
+const AppContent: React.FC = () => {
+  const [step, setStep] = useState<'home' | 'quiz' | 'report'>('home');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   
   // 兑换码相关状态
   const [inputCode, setInputCode] = useState('');
@@ -74,49 +46,29 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [isShake, setIsShake] = useState(false);
 
-  // Auth Listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setIsAuthReady(true);
-      
-      // If user is logged in, ensure they have a profile in Firestore
-      if (currentUser) {
-        const userRef = doc(db, 'users', currentUser.uid);
-        setDoc(userRef, {
-          uid: currentUser.uid,
-          email: currentUser.email,
-          role: currentUser.email === 'liphilip0224@gmail.com' ? 'admin' : 'user'
-        }, { merge: true }).catch(err => {
-          console.error('Error updating user profile:', err);
-        });
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
   const progress = useMemo(() => {
     return Math.round(((currentIndex) / QUESTIONS.length) * 100);
   }, [currentIndex]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error("Login failed:", err);
       setError('登录失败，请重试');
     }
   };
 
   const handleVerify = () => {
     const code = inputCode.trim().toUpperCase();
-    
-    // Secret code for admin access
-    if (code === 'ADMIN888' && user?.email === 'liphilip0224@gmail.com') {
-      setStep('admin');
-      return;
-    }
-
     if (!code) {
       setError('请输入兑换码');
       triggerShake();
@@ -152,7 +104,7 @@ const App: React.FC = () => {
     setTimeout(() => setIsShake(false), 500);
   };
 
-  const handleAnswer = (value: string) => {
+  const handleAnswer = async (value: string) => {
     const question = QUESTIONS[currentIndex];
     const newAnswers = { ...answers, [question.id]: value };
     setAnswers(newAnswers);
@@ -160,69 +112,36 @@ const App: React.FC = () => {
     if (currentIndex < QUESTIONS.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      saveResult(newAnswers);
-      setStep('report');
-    }
-  };
-
-  const saveResult = async (finalAnswers: Record<number, string>) => {
-    if (!user) return;
-
-    const scores = calculateScores(finalAnswers);
-    const portrait = getDetailedPortrait(scores);
-    
-    try {
-      const resultRef = doc(collection(db, 'results'));
-      await setDoc(resultRef, {
-        uid: user.uid,
-        email: user.email,
-        timestamp: serverTimestamp(),
-        scores,
-        portrait: {
-          title: portrait.title,
-          subtitle: portrait.subtitle
+      const finalScores = calculateScores(newAnswers);
+      // If logged in, save to Firestore
+      if (user) {
+        try {
+          await addDoc(collection(db, 'user_assessments'), {
+            uid: user.uid,
+            email: user.email,
+            answers: newAnswers,
+            scores: finalScores,
+            createdAt: serverTimestamp()
+          });
+        } catch (err) {
+          console.error("Failed to save assessment:", err);
+          // We still show the report even if saving fails
         }
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'results');
+      }
+      setStep('report');
     }
   };
 
   const currentQuestion = QUESTIONS[currentIndex];
 
-  if (!isAuthReady) {
+  if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <i className="fa-solid fa-spinner fa-spin text-3xl text-brand-primary"></i>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="max-w-md w-full text-center bg-white p-12 rounded-[3rem] shadow-2xl border border-white">
-          <div className="mb-8 flex justify-center">
-             <img src="https://raw.githubusercontent.com/Antigravity-AI/logos/main/fangzai_logo.png" alt="方载" className="w-32 h-32 object-contain" />
-          </div>
-          <h1 className="text-3xl font-black text-slate-900 mb-4">欢迎使用方载测评</h1>
-          <p className="text-slate-500 mb-10 text-sm">请先登录以开始您的职业成长路径探索</p>
-          <button 
-            onClick={handleLogin}
-            className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl hover:bg-brand-primary transition-all flex items-center justify-center gap-3"
-          >
-            <i className="fa-brands fa-google"></i> 使用 Google 账号登录
-          </button>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin"></div>
+          <p className="text-slate-400 text-xs font-black tracking-widest uppercase">正在加载配置...</p>
         </div>
       </div>
-    );
-  }
-
-  if (step === 'admin') {
-    return (
-      <ErrorBoundary>
-        <AdminDashboard onBack={() => setStep('home')} />
-      </ErrorBoundary>
     );
   }
 
@@ -235,6 +154,16 @@ const App: React.FC = () => {
         <div className="absolute top-[20%] right-[10%] w-24 h-24 bg-brand-accent/10 rounded-full blur-xl"></div>
         
         <div className="max-w-2xl w-full text-center bg-white/80 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] shadow-2xl shadow-brand-primary/10 border border-white relative z-10">
+          {user && (
+            <div className="absolute top-8 right-8 flex items-center gap-3 bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-white/50 shadow-sm">
+              <img src={user.photoURL || ''} alt="" className="w-6 h-6 rounded-full" />
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider">{user.displayName?.split(' ')[0]}</span>
+              <button onClick={() => auth.signOut()} className="text-slate-300 hover:text-rose-500 transition-colors">
+                <i className="fa-solid fa-right-from-bracket text-[10px]"></i>
+              </button>
+            </div>
+          )}
+
           <div className="mb-6 flex justify-center">
             {/* Logo Section - Prominent Official Image Logo */}
             <div className="w-64 h-64 flex items-center justify-center transition-all duration-700 relative group">
@@ -296,14 +225,25 @@ const App: React.FC = () => {
           </div>
 
           {!isSuccess && (
-            <button 
-              onClick={handleVerify}
-              disabled={isVerifying}
-              className="w-full max-w-xs py-5 bg-slate-900 text-white text-lg font-black rounded-2xl hover:bg-brand-primary transition-all shadow-xl hover:shadow-brand-primary/30 active:scale-95 disabled:opacity-50 relative overflow-hidden group"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
-              <span className="relative z-10">{isVerifying ? '核验中...' : '立即验证身份'}</span>
-            </button>
+            <div className="space-y-4">
+              {!user && (
+                <button 
+                  onClick={handleLogin}
+                  className="w-full max-w-xs py-4 bg-white border-2 border-slate-100 text-slate-700 text-sm font-bold rounded-2xl hover:border-brand-primary hover:bg-brand-primary/5 transition-all flex items-center justify-center gap-3 mx-auto shadow-sm"
+                >
+                  <img src="https://www.google.com/favicon.ico" alt="" className="w-4 h-4" />
+                  使用 Google 账号登录以保存结果
+                </button>
+              )}
+              <button 
+                onClick={handleVerify}
+                disabled={isVerifying}
+                className="w-full max-w-xs py-5 bg-slate-900 text-white text-lg font-black rounded-2xl hover:bg-brand-primary transition-all shadow-xl hover:shadow-brand-primary/30 active:scale-95 disabled:opacity-50 relative overflow-hidden group mx-auto block"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
+                <span className="relative z-10">{isVerifying ? '核验中...' : '立即验证身份'}</span>
+              </button>
+            </div>
           )}
 
           <div className="mt-16 pt-10 border-t border-slate-100">
@@ -399,15 +339,21 @@ const App: React.FC = () => {
   const finalScores = calculateScores(answers);
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-white">
-        <Report scores={finalScores} onRestart={() => {
-          setStep('home');
-          setIsSuccess(false);
-          setInputCode('');
-          setError('');
-        }} />
-      </div>
+    <div className="min-h-screen bg-white">
+      <Report scores={finalScores} onRestart={() => {
+        setStep('home');
+        setIsSuccess(false);
+        setInputCode('');
+        setError('');
+      }} />
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <AppContent />
     </ErrorBoundary>
   );
 };

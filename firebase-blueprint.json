@@ -1,46 +1,24 @@
+
 {
   "entities": {
-    "AssessmentResult": {
-      "title": "Assessment Result",
-      "description": "A single user's assessment result including scores and portrait.",
+    "UserAssessment": {
+      "title": "User Assessment",
+      "description": "Stores the results of a user's career growth path assessment.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string", "description": "The user's unique ID." },
-        "email": { "type": "string", "format": "email", "description": "The user's email address." },
-        "timestamp": { "type": "string", "format": "date-time", "description": "When the assessment was completed." },
-        "scores": { "type": "object", "description": "The raw scores for each sub-dimension." },
-        "portrait": {
-          "type": "object",
-          "properties": {
-            "title": { "type": "string" },
-            "subtitle": { "type": "string" }
-          }
-        },
-        "mostSuitable": { "type": "string" },
-        "leastSuitable": { "type": "string" }
+        "uid": { "type": "string", "description": "The unique identifier of the user." },
+        "email": { "type": "string", "description": "The email address of the user." },
+        "answers": { "type": "object", "description": "The raw answers provided by the user." },
+        "scores": { "type": "object", "description": "The calculated scores for each dimension." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp when the assessment was completed." }
       },
-      "required": ["uid", "timestamp", "scores", "portrait"]
-    },
-    "User": {
-      "title": "User",
-      "description": "A user's profile and role.",
-      "type": "object",
-      "properties": {
-        "uid": { "type": "string" },
-        "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "user"] }
-      },
-      "required": ["uid", "email", "role"]
+      "required": ["uid", "answers", "scores", "createdAt"]
     }
   },
   "firestore": {
-    "/results/{resultId}": {
-      "schema": "AssessmentResult",
-      "description": "Collection of all assessment results."
-    },
-    "/users/{userId}": {
-      "schema": "User",
-      "description": "Collection of user profiles and roles."
+    "/user_assessments/{assessmentId}": {
+      "schema": "UserAssessment",
+      "description": "A collection of user assessment results."
     }
   }
 }
