@@ -1,14 +1,70 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { QUESTIONS } from './constants/questions';
-import { calculateScores } from './utils/analysis';
+import { calculateScores, getDetailedPortrait } from './utils/analysis';
 import { STATIC_CODES, isValidPattern } from './constants/codes';
 import Report from './components/Report';
+import { auth, db, googleProvider, signInWithPopup, onAuthStateChanged, collection, doc, setDoc, serverTimestamp, FirebaseUser, handleFirestoreError, OperationType } from './src/firebase';
+import AdminDashboard from './src/components/AdminDashboard';
+
+// Error Boundary Component
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  errorInfo: string;
+}
+
+class ErrorBoundary extends React.Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    errorInfo: ''
+  };
+
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, errorInfo: error.message };
+  }
+
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
+  }
+
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6 bg-rose-50">
+          <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-rose-100 text-center">
+            <i className="fa-solid fa-circle-exclamation text-5xl text-rose-500 mb-6"></i>
+            <h2 className="text-2xl font-black text-slate-900 mb-4">抱歉，出错了</h2>
+            <p className="text-slate-600 mb-6 text-sm leading-relaxed">
+              应用程序遇到了一个意外错误。请尝试刷新页面或联系管理员。
+            </p>
+            <div className="bg-slate-50 p-4 rounded-xl text-left mb-6 overflow-auto max-h-40">
+              <code className="text-[10px] text-rose-600 break-all">{this.state.errorInfo}</code>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-brand-primary transition-all"
+            >
+              刷新页面
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (this as any).props.children;
+  }
+}
 
 const App: React.FC = () => {
-  const [step, setStep] = useState<'home' | 'quiz' | 'report'>('home');
+  const [step, setStep] = useState<'home' | 'quiz' | 'report' | 'admin'>('home');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   
   // 兑换码相关状态
   const [inputCode, setInputCode] = useState('');
@@ -18,12 +74,49 @@ const App: React.FC = () => {
   const [error, setError] = useState('');
   const [isShake, setIsShake] = useState(false);
 
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+      
+      // If user is logged in, ensure they have a profile in Firestore
+      if (currentUser) {
+        const userRef = doc(db, 'users', currentUser.uid);
+        setDoc(userRef, {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          role: currentUser.email === 'liphilip0224@gmail.com' ? 'admin' : 'user'
+        }, { merge: true }).catch(err => {
+          console.error('Error updating user profile:', err);
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const progress = useMemo(() => {
     return Math.round(((currentIndex) / QUESTIONS.length) * 100);
   }, [currentIndex]);
 
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      console.error('Login failed:', err);
+      setError('登录失败，请重试');
+    }
+  };
+
   const handleVerify = () => {
     const code = inputCode.trim().toUpperCase();
+    
+    // Secret code for admin access
+    if (code === 'ADMIN888' && user?.email === 'liphilip0224@gmail.com') {
+      setStep('admin');
+      return;
+    }
+
     if (!code) {
       setError('请输入兑换码');
       triggerShake();
@@ -67,11 +160,71 @@ const App: React.FC = () => {
     if (currentIndex < QUESTIONS.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
+      saveResult(newAnswers);
       setStep('report');
     }
   };
 
+  const saveResult = async (finalAnswers: Record<number, string>) => {
+    if (!user) return;
+
+    const scores = calculateScores(finalAnswers);
+    const portrait = getDetailedPortrait(scores);
+    
+    try {
+      const resultRef = doc(collection(db, 'results'));
+      await setDoc(resultRef, {
+        uid: user.uid,
+        email: user.email,
+        timestamp: serverTimestamp(),
+        scores,
+        portrait: {
+          title: portrait.title,
+          subtitle: portrait.subtitle
+        }
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'results');
+    }
+  };
+
   const currentQuestion = QUESTIONS[currentIndex];
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <i className="fa-solid fa-spinner fa-spin text-3xl text-brand-primary"></i>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+        <div className="max-w-md w-full text-center bg-white p-12 rounded-[3rem] shadow-2xl border border-white">
+          <div className="mb-8 flex justify-center">
+             <img src="https://raw.githubusercontent.com/Antigravity-AI/logos/main/fangzai_logo.png" alt="方载" className="w-32 h-32 object-contain" />
+          </div>
+          <h1 className="text-3xl font-black text-slate-900 mb-4">欢迎使用方载测评</h1>
+          <p className="text-slate-500 mb-10 text-sm">请先登录以开始您的职业成长路径探索</p>
+          <button 
+            onClick={handleLogin}
+            className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl hover:bg-brand-primary transition-all flex items-center justify-center gap-3"
+          >
+            <i className="fa-brands fa-google"></i> 使用 Google 账号登录
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'admin') {
+    return (
+      <ErrorBoundary>
+        <AdminDashboard onBack={() => setStep('home')} />
+      </ErrorBoundary>
+    );
+  }
 
   if (step === 'home') {
     return (
@@ -246,14 +399,16 @@ const App: React.FC = () => {
   const finalScores = calculateScores(answers);
 
   return (
-    <div className="min-h-screen bg-white">
-      <Report scores={finalScores} onRestart={() => {
-        setStep('home');
-        setIsSuccess(false);
-        setInputCode('');
-        setError('');
-      }} />
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen bg-white">
+        <Report scores={finalScores} onRestart={() => {
+          setStep('home');
+          setIsSuccess(false);
+          setInputCode('');
+          setError('');
+        }} />
+      </div>
+    </ErrorBoundary>
   );
 };
 
