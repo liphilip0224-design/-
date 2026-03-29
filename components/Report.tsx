@@ -252,9 +252,9 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
         </div>
       </section>
 
-      {/* 适合及不适合你工作结构 */}
+      {/* 适合及不适合你的工作结构 */}
       <section className="space-y-8 mb-16">
-        <h2 className="text-2xl font-black text-slate-900 mb-8 px-2">最适合及最不适合你工作结构</h2>
+        <h2 className="text-2xl font-black text-slate-900 mb-8 px-2">最适合及最不适合你的工作结构</h2>
         
         {/* 适合的工作结构 (第一 & 第二) */}
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
