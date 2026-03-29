@@ -3,7 +3,6 @@ import React from 'react';
 import { Scores } from '../types';
 import { getDetailedPortrait, getSortedSubDims } from '../utils/analysis';
 import { motion } from 'motion/react';
-import { auth } from '../firebase';
 
 interface Props {
   scores: Scores;
@@ -212,8 +211,6 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
   const mostSuitable = getMostSuitableStructure();
   const leastSuitable = getLeastSuitableStructure(mostSuitable.type);
 
-  const user = auth.currentUser;
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -223,12 +220,6 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
     >
       {/* 头部：一句话总画像 */}
       <header className="text-center mb-16 relative">
-        {user && (
-          <div className="absolute top-0 right-0 flex items-center gap-2 text-[10px] text-slate-400 font-bold bg-white/50 px-3 py-1 rounded-full border border-slate-100">
-            <i className="fa-solid fa-cloud-check text-emerald-500"></i>
-            报告已同步至: {user.email}
-          </div>
-        )}
         <div className="inline-block px-4 py-1 bg-brand-primary/10 text-brand-primary text-[10px] font-black rounded-full mb-4 tracking-widest uppercase">
           职业成长路径行动画像·工作人格
         </div>

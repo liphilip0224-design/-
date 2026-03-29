@@ -1,11 +1,8 @@
 
-import React, { useState, useMemo, useEffect, ReactNode } from 'react';
+import React, { useState, useMemo } from 'react';
 import { QUESTIONS } from './constants/questions';
 import { calculateScores } from './utils/analysis';
-import { STATIC_CODES, isValidPattern } from './constants/codes';
 import Report from './components/Report';
-import { auth, googleProvider, signInWithPopup, onAuthStateChanged, db, User } from './firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ErrorBoundary } from 'react-error-boundary';
 
 // Error Fallback Component
@@ -17,9 +14,7 @@ const ErrorFallback = ({ error }: { error: Error }) => {
       </div>
       <h1 className="text-2xl font-black text-slate-900 mb-4">抱歉，程序出现了错误</h1>
       <p className="text-slate-600 mb-8 max-w-md">
-        {error?.message.includes('{') 
-          ? "数据库连接或权限验证失败，请刷新页面重试。" 
-          : "我们遇到了一些技术问题，请稍后再试。"}
+        我们遇到了一些技术问题，请稍后再试。
       </p>
       <button 
         onClick={() => window.location.reload()}
@@ -35,12 +30,10 @@ const AppContent: React.FC = () => {
   const [step, setStep] = useState<'home' | 'quiz' | 'report'>('home');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  
-  // 兑换码相关状态
-  const [inputCode, setInputCode] = useState('');
   const [logoError, setLogoError] = useState(false);
+  
+  // 授权码相关状态
+  const [inputCode, setInputCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -50,27 +43,15 @@ const AppContent: React.FC = () => {
     return Math.round(((currentIndex) / QUESTIONS.length) * 100);
   }, [currentIndex]);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setIsAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) {
-      console.error("Login failed:", err);
-      setError('登录失败，请重试');
-    }
+  const triggerShake = () => {
+    setIsShake(true);
+    setTimeout(() => setIsShake(false), 500);
   };
 
   const handleVerify = () => {
     const code = inputCode.trim().toUpperCase();
     if (!code) {
-      setError('请输入兑换码');
+      setError('请输入授权码');
       triggerShake();
       return;
     }
@@ -80,31 +61,26 @@ const AppContent: React.FC = () => {
 
     // 模拟核验动画
     setTimeout(() => {
-      const isStaticValid = STATIC_CODES.includes(code);
-      const isPatternValid = isValidPattern(code);
-
-      if (isStaticValid || isPatternValid) {
+      // 验证规则：以 FZ- 开头，后面跟着 4 位数字
+      const pattern = /^FZ-\d{4}$/;
+      
+      if (pattern.test(code)) {
         setIsSuccess(true);
-        // 成功后延迟进入题目，增强仪式感
+        // 成功后延迟进入题目
         setTimeout(() => {
           setStep('quiz');
           setCurrentIndex(0);
           setAnswers({});
         }, 800);
       } else {
-        setError('兑换码无效或已过期');
+        setError('授权码无效（格式：FZ-XXXX）');
         triggerShake();
       }
       setIsVerifying(false);
     }, 600);
   };
 
-  const triggerShake = () => {
-    setIsShake(true);
-    setTimeout(() => setIsShake(false), 500);
-  };
-
-  const handleAnswer = async (value: string) => {
+  const handleAnswer = (value: string) => {
     const question = QUESTIONS[currentIndex];
     const newAnswers = { ...answers, [question.id]: value };
     setAnswers(newAnswers);
@@ -112,38 +88,11 @@ const AppContent: React.FC = () => {
     if (currentIndex < QUESTIONS.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
-      const finalScores = calculateScores(newAnswers);
-      // If logged in, save to Firestore
-      if (user) {
-        try {
-          await addDoc(collection(db, 'user_assessments'), {
-            uid: user.uid,
-            email: user.email,
-            answers: newAnswers,
-            scores: finalScores,
-            createdAt: serverTimestamp()
-          });
-        } catch (err) {
-          console.error("Failed to save assessment:", err);
-          // We still show the report even if saving fails
-        }
-      }
       setStep('report');
     }
   };
 
   const currentQuestion = QUESTIONS[currentIndex];
-
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin"></div>
-          <p className="text-slate-400 text-xs font-black tracking-widest uppercase">正在加载配置...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (step === 'home') {
     return (
@@ -154,16 +103,6 @@ const AppContent: React.FC = () => {
         <div className="absolute top-[20%] right-[10%] w-24 h-24 bg-brand-accent/10 rounded-full blur-xl"></div>
         
         <div className="max-w-2xl w-full text-center bg-white/80 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] shadow-2xl shadow-brand-primary/10 border border-white relative z-10">
-          {user && (
-            <div className="absolute top-8 right-8 flex items-center gap-3 bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-white/50 shadow-sm">
-              <img src={user.photoURL || ''} alt="" className="w-6 h-6 rounded-full" />
-              <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider">{user.displayName?.split(' ')[0]}</span>
-              <button onClick={() => auth.signOut()} className="text-slate-300 hover:text-rose-500 transition-colors">
-                <i className="fa-solid fa-right-from-bracket text-[10px]"></i>
-              </button>
-            </div>
-          )}
-
           <div className="mb-6 flex justify-center">
             {/* Logo Section - Prominent Official Image Logo */}
             <div className="w-64 h-64 flex items-center justify-center transition-all duration-700 relative group">
@@ -202,7 +141,7 @@ const AppContent: React.FC = () => {
                     setError('');
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
-                  placeholder="输入授权码"
+                  placeholder="输入授权码 (如 FZ-2026)"
                   className={`w-full px-6 py-5 bg-white border-2 rounded-2xl text-center text-xl font-mono font-bold tracking-[0.2em] transition-all focus:outline-none relative z-10 ${
                     isSuccess ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-inner' :
                     error ? 'border-rose-400 text-rose-600 shadow-inner' : 'border-slate-100 focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/5 shadow-sm'
@@ -333,9 +272,6 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-white">
       <Report scores={finalScores} onRestart={() => {
         setStep('home');
-        setIsSuccess(false);
-        setInputCode('');
-        setError('');
       }} />
     </div>
   );
