@@ -147,7 +147,7 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
   };
 
   // 获取最不适合的工作结构
-  const getLeastSuitableStructure = () => {
+  const getLeastSuitableStructure = (avoidType: string) => {
     const isIntuitive = (scores['直觉型认知'] || 0) > (scores['系统性认知'] || 0);
     const isExternal = (scores['外在激励'] || 0) > (scores['内在激励'] || 0);
     const bottomLearning = learningTop[learningTop.length - 1];
@@ -178,6 +178,23 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
       reason = "这类工作需要长期的耐心与对规则的严守，与你追求直觉反应与内在兴趣的特质不够适配。枯燥的重复性劳动会迅速消耗你的创造力。";
     }
 
+    // 关键修正：如果冲突，则选择逻辑对立面
+    if (typeName === avoidType) {
+      if (avoidType === "消费支持型工作") {
+        typeName = "关联扩展型工作";
+        reason = "由于你更倾向于稳定的环境或特定的内在价值，这种需要极高灵活性、且结果往往不确定的扩展型工作会让你感到巨大的不确定性压力。";
+      } else if (avoidType === "购买决策型工作") {
+        typeName = "核心功能型工作";
+        reason = "你可能更适合宏观决策或系统整合，而这种需要极度关注单一技术细节、且目标极其死板的功能型工作会限制你的全局视野。";
+      } else if (avoidType === "关联扩展型工作") {
+        typeName = "消费支持型工作";
+        reason = "你追求变化与创新的特质，在需要极度耐心、长期重复且规则森严的体系维护工作中，会感到才华被束缚，难以获得成就感。";
+      } else {
+        typeName = "购买决策型工作";
+        reason = "这种高压力的资源博弈环境与你的核心特质存在天然冲突，强行适配会导致严重的职业倦怠。";
+      }
+    }
+
     const typeInfo = workTypes.find(t => t.name === typeName)!;
 
     return { 
@@ -191,7 +208,7 @@ const Report: React.FC<Props> = ({ scores, onRestart }) => {
   };
 
   const mostSuitable = getMostSuitableStructure();
-  const leastSuitable = getLeastSuitableStructure();
+  const leastSuitable = getLeastSuitableStructure(mostSuitable.type);
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-6 bg-slate-50 min-h-screen">
