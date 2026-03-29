@@ -27,3 +27,11 @@ export interface AnalysisResult {
   summary: string;
   coreRadar: string;
 }
+
+export interface DetailedPortrait {
+  title: string;
+  subtitle: string;
+  mainDrive: string;
+  executionFramework: string;
+  growthConditions: string;
+}

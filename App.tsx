@@ -82,10 +82,9 @@ const App: React.FC = () => {
         <div className="absolute top-[20%] right-[10%] w-24 h-24 bg-brand-accent/10 rounded-full blur-xl"></div>
         
         <div className="max-w-2xl w-full text-center bg-white/80 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] shadow-2xl shadow-brand-primary/10 border border-white relative z-10">
-          <div className="mb-10 flex justify-center">
-            {/* Logo Section - Shrunken Official Image Logo */}
-            <div className="w-44 h-44 flex items-center justify-center transition-all duration-700 bg-white rounded-[2.5rem] p-6 shadow-xl shadow-brand-primary/5 border border-slate-50 relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/5 to-transparent rounded-[2.5rem] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          <div className="mb-6 flex justify-center">
+            {/* Logo Section - Prominent Official Image Logo */}
+            <div className="w-64 h-64 flex items-center justify-center transition-all duration-700 relative group">
               {!logoError ? (
                 <img 
                   src="https://raw.githubusercontent.com/Antigravity-AI/logos/main/fangzai_logo.png" 
@@ -94,7 +93,7 @@ const App: React.FC = () => {
                   onError={() => setLogoError(true)}
                 />
               ) : (
-                <div className="text-4xl font-black text-slate-900 tracking-tighter relative z-10">方载</div>
+                <div className="text-6xl font-black text-slate-900 tracking-tighter relative z-10">方载</div>
               )}
             </div>
           </div>
@@ -160,7 +159,7 @@ const App: React.FC = () => {
                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors">
                   <i className="fa-solid fa-layer-group text-lg"></i>
                 </div>
-                <span>评估项目模型九类之一</span>
+                <span>方载团队评估项目模型九类之一</span>
               </div>
               <div className="flex flex-col items-center gap-3 group">
                 <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-brand-accent/10 group-hover:text-brand-accent transition-colors">
@@ -210,6 +209,7 @@ const App: React.FC = () => {
 
           {/* Question Card */}
           <div className="bg-white rounded-[2rem] p-8 md:p-12 shadow-xl shadow-slate-200/50 border border-slate-100 mb-8">
+            <div className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-4">请选择第一印象的答案</div>
             <h2 className="text-2xl font-bold text-slate-900 mb-12 leading-tight tracking-tight">
               {currentQuestion.text}
             </h2>
@@ -247,7 +247,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <Report scores={finalScores} onRestart={() => setStep('home')} />
+      <Report scores={finalScores} onRestart={() => {
+        setStep('home');
+        setIsSuccess(false);
+        setInputCode('');
+        setError('');
+      }} />
     </div>
   );
 };
