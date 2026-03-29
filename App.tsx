@@ -272,6 +272,9 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-white">
       <Report scores={finalScores} onRestart={() => {
         setStep('home');
+        setIsSuccess(false);
+        setInputCode('');
+        setError('');
       }} />
     </div>
   );
