@@ -226,15 +226,6 @@ const AppContent: React.FC = () => {
 
           {!isSuccess && (
             <div className="space-y-4">
-              {!user && (
-                <button 
-                  onClick={handleLogin}
-                  className="w-full max-w-xs py-4 bg-white border-2 border-slate-100 text-slate-700 text-sm font-bold rounded-2xl hover:border-brand-primary hover:bg-brand-primary/5 transition-all flex items-center justify-center gap-3 mx-auto shadow-sm"
-                >
-                  <img src="https://www.google.com/favicon.ico" alt="" className="w-4 h-4" />
-                  使用 Google 账号登录以保存结果
-                </button>
-              )}
               <button 
                 onClick={handleVerify}
                 disabled={isVerifying}
